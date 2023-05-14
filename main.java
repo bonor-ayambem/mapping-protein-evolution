@@ -4,6 +4,8 @@ import java.util.*;
 public class main {
     public static void main(String[] args){
         List<Node> upgmaTree = new ArrayList<Node>();
+        List<Node> njTree = new ArrayList<Node>();
+
         Scanner sc = new Scanner(System.in);
 
         System.out.println("Enter Matrix File Name: ");
@@ -59,10 +61,10 @@ public class main {
         System.out.println("Input matrix is:");
         printMatrix(sequences, matrix);
 
-        System.out.println("Generating UPGMA Tree...");
+        System.out.println("\nGenerating UPGMA Tree...");
         upgmaTree = generateUPGMA(sequences, matrix);
 
-        System.out.println("Writing Tree to file...");
+        System.out.println("\nWriting Tree to file...");
         String upgmaString = generateUpgmaString(upgmaTree);
         try {
             FileWriter upgmaFile = new FileWriter(filename + "UPGMA");
@@ -73,7 +75,23 @@ public class main {
         catch (Exception e) {
             e.getStackTrace();
         }
-        System.out.println("UPGMA Tree is contained in: " + filename + "UPGMA");
+        System.out.println("\nUPGMA Tree is contained in: " + filename + "UPGMA");
+
+        System.out.println("\nGenerating Neighbor Joining Tree...");
+        njTree = generateNJ(sequences, matrix);
+
+        System.out.println("\nWriting Tree to file...");
+        String njString = generateNjString(njTree);
+        try {
+            FileWriter njFile = new FileWriter(filename + "NJ");
+
+            njFile.write(njString);
+            njFile.close();
+        }
+        catch (Exception e) {
+            e.getStackTrace();
+        }
+        System.out.println("\nNeighbor Joining Tree is contained in: " + filename + "NJ");
     }
 
     public static List<Node> generateUPGMA(List<String> sequences, double[][] matrix){
@@ -83,9 +101,7 @@ public class main {
 
         // assign each Xi to its own cluster Ci
         for(int i = 0; i < sequences.size(); i++){
-            // List<String> clust = new ArrayList<String>();
             clusters.add(sequences.get(i));
-            // clusters.add(clust);
 
             // define one leaf per sequence, each at height 0
             tree.add(new Node(sequences.get(i), 0));
@@ -99,17 +115,14 @@ public class main {
             int pos1 = -1, pos2 = -1;
             for(int i = 0; i < clusters.size(); i++){
                 for(int j = i+1; j < clusters.size(); j++){
-                    // System.out.println("new compare");
                     double d = evaluateDist(matrix, sequences, clusters.get(i), clusters.get(j));
                     if(d < dMin){
-                        // System.out.println(d);
                         dMin = d; pos1 = i; pos2 = j;
                         cluster1 = clusters.get(i);
                         cluster2 = clusters.get(j);
                     }
                 }
             }
-            // System.out.println("end of comparisons " + cluster1 + " " + cluster2 + " " + dMin);
 
             String newNode = cluster1+cluster2;
             clusters.add(newNode);
@@ -117,7 +130,6 @@ public class main {
             clusters.remove(cluster2);
 
             Node vertex = new Node(newNode, dMin/2);
-            // System.out.println(vertex.getHeight());
             vertex.addChild(tree.get(pos1));
             vertex.addChild(tree.get(pos2));
 
@@ -129,32 +141,22 @@ public class main {
                 }
             }
             tree.add(vertex);
-            // tree.remove(pos1);
-            // tree.remove(pos2-1);
-
-            // System.out.println(clusters);
         }
 
         return tree;
     }
 
     public static double evaluateDist(double[][] matrix, List<String> sequences, String cluster1, String cluster2){
-        // int numClust1 = 0;
-        // int numClust2 = 0;
         double sum = 0;
 
         String[] nodes1 = cluster1.split("\\*");
         String[] nodes2 = cluster2.split("\\*");
 
-        // System.out.println(cluster1 + " and " + cluster2);
-
         for(int i = 0; i < nodes1.length; i++){
             for(int j = 0; j < nodes2.length; j++){
-                // System.out.println(sequences + " " + nodes1[i] + " " + nodes2[j]);
                 sum += matrix[sequences.indexOf(nodes1[i]+"*")][sequences.indexOf(nodes2[j]+"*")];
             }
         }
-        // System.out.println("d evaluated: sum = " + sum + " |Ci| = " + nodes1.length + " |Cj| = " + nodes2.length + " = " + (sum/(nodes1.length*nodes2.length)));
 
         return sum/(nodes1.length*nodes2.length);        
     }
@@ -181,6 +183,125 @@ public class main {
             sb.append(")");
             sb.append(":").append(node.getHeight());
         }
+    }
+
+     public static List<Node> generateNJ(List<String> sequences, double[][] matrix) {
+        List<Node> tree = new ArrayList<>();
+        List<Node> nodes = new ArrayList<>();
+        
+        Map<String, Integer> map = new HashMap<>();
+        int N = sequences.size();
+
+        for(int i = 0; i < N; i++){
+            Node node = new Node(sequences.get(i), 0);
+            nodes.add(node);
+            map.put(sequences.get(i), i);
+        }
+
+        while(nodes.size() > 2) {
+            int[] indices = findLowestPair(nodes, matrix);
+            int i = indices[0], j = indices[1];
+
+            double dist = calcDistance(matrix, i, j, nodes.size());
+            double dij = (getTotalDist(matrix, i) - getTotalDist(matrix, j)) / (nodes.size() - 2);
+            double dji = dist - dij;
+
+            String newNodeName = nodes.get(i).getName() + nodes.get(j).getName();
+            Node newNode = new Node(newNodeName, dist/2);
+            Node nodei = nodes.get(i);
+            Node nodej = nodes.get(j);
+            newNode.addChild(nodei);
+            newNode.addChild(nodej);
+            nodes.remove(nodei);
+            nodes.remove(nodej);
+            nodes.add(newNode);
+
+            map.put(newNodeName, nodes.size() - 1);
+
+            for(int k = 0; k < nodes.size(); k++) {
+                if(k != i && k != j) {
+                    // System.out.println(map + " " + nodes.get(k).getName() + " " + i + " " + j + " " + k);
+                    int m = map.get(nodes.get(k).getName());
+                    double dik = (matrix[i][m] + matrix[j][m] - dij - matrix[i][j]) / 2;
+                    double djk = dist - dik;
+                    matrix[k][nodes.size()-1] = djk;
+                    matrix[nodes.size()-1][k] = djk;
+                    matrix[k][i] = dik;
+                    matrix[i][k] = dik;
+                    matrix[k][j] = djk;
+                    matrix[j][k] = djk;
+                }
+            }
+
+        }
+
+        Node root = new Node("root", 0);
+        Node node1 = nodes.get(0);
+        Node node2 = nodes.get(1);
+        double dist = matrix[0][1];
+        root.addChild(node1);
+        root.addChild(node2);
+        node1.setHeight(dist/2);
+        node2.setHeight(dist/2);
+        root.setHeight(dist/2);
+        tree.add(root);
+
+        return tree;
+    }
+
+    public static int[] findLowestPair(List<Node> nodes, double[][] matrix) {
+        int N = nodes.size();
+        int[] indices = new int[2];
+        double min = Double.MAX_VALUE;
+
+        for(int i = 0; i < N; i++) {
+            for(int j = i+1; j < N; j++) {
+                double dist = calcDistance(matrix, i, j, N);
+                if(dist < min) {
+                    min = dist;
+                    indices[0] = i;
+                    indices[1] = j;
+                }
+            }
+        }
+
+        return indices;
+    }
+
+    public static double calcDistance(double[][] matrix, int i, int j, int N) {
+        double dist = 0;
+        for(int k = 0; k < N; k++) {
+            dist += matrix[i][k] + matrix[j][k];
+        }
+        dist = dist / (2 * (N-2));
+        return dist;
+    }
+
+    public static double getTotalDist(double[][] matrix, int i) {
+        double dist = 0;
+        for(int k = 0; k < matrix.length; k++){
+            dist += matrix[i][k];
+        }
+        return dist;
+    }
+
+    public static String generateNjString(List<Node> tree) {
+        StringBuilder sb = new StringBuilder();
+
+        for (Node node : tree) {
+            if (node.getChildren().size() > 0) {
+                sb.append(node.getName()).append(", ");
+                for (Node child : node.getChildren()) {
+                    double distance = child.getHeight() - node.getHeight();
+                    sb.append(child.getName()).append(", ");
+                    sb.append(String.format("%.1f", distance)).append("\n");
+                }
+            } else {
+                sb.append(node.getName()).append("\n");
+            }
+        }
+
+        return sb.toString();
     }
 
 

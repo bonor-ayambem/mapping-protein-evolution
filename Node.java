@@ -10,6 +10,10 @@ public class Node {
         height = h;
     }
 
+    public void setHeight(double h){
+        height = h;
+    }
+
     public void addChild(Node child){
         children.add(child);        
     }
