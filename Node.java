@@ -17,4 +17,16 @@ public class Node {
     public String getName(){
         return name;
     }
+
+    public double getHeight(){
+        return height;
+    }
+
+    public List<Node> getChildren(){
+        return children;
+    }
+
+    public boolean isLeaf(){
+        return children.size() == 0;
+    }
 }

@@ -47,7 +47,6 @@ public class main {
 
                     matrix[j-1][i] = Double.parseDouble(lineSplit[j]);
                     // System.out.println("here2");
-
                 }
             }
         }
@@ -62,7 +61,19 @@ public class main {
 
         System.out.println("Generating UPGMA Tree...");
         upgmaTree = generateUPGMA(sequences, matrix);
-        System.out.println(upgmaTree.size());
+
+        System.out.println("Writing Tree to file...");
+        String upgmaString = generateUpgmaString(upgmaTree);
+        try {
+            FileWriter upgmaFile = new FileWriter(filename + "UPGMA");
+
+            upgmaFile.write(upgmaString);
+            upgmaFile.close();
+        }
+        catch (Exception e) {
+            e.getStackTrace();
+        }
+        System.out.println("UPGMA Tree is contained in: " + filename + "UPGMA");
     }
 
     public static List<Node> generateUPGMA(List<String> sequences, double[][] matrix){
@@ -88,17 +99,17 @@ public class main {
             int pos1 = -1, pos2 = -1;
             for(int i = 0; i < clusters.size(); i++){
                 for(int j = i+1; j < clusters.size(); j++){
-                    System.out.println("new compare");
+                    // System.out.println("new compare");
                     double d = evaluateDist(matrix, sequences, clusters.get(i), clusters.get(j));
                     if(d < dMin){
-                        System.out.println(d);
+                        // System.out.println(d);
                         dMin = d; pos1 = i; pos2 = j;
                         cluster1 = clusters.get(i);
                         cluster2 = clusters.get(j);
                     }
                 }
             }
-            System.out.println("end of comparisons " + cluster1 + " " + cluster2);
+            // System.out.println("end of comparisons " + cluster1 + " " + cluster2 + " " + dMin);
 
             String newNode = cluster1+cluster2;
             clusters.add(newNode);
@@ -106,6 +117,7 @@ public class main {
             clusters.remove(cluster2);
 
             Node vertex = new Node(newNode, dMin/2);
+            // System.out.println(vertex.getHeight());
             vertex.addChild(tree.get(pos1));
             vertex.addChild(tree.get(pos2));
 
@@ -120,7 +132,7 @@ public class main {
             // tree.remove(pos1);
             // tree.remove(pos2-1);
 
-            System.out.println(clusters);
+            // System.out.println(clusters);
         }
 
         return tree;
@@ -138,14 +150,39 @@ public class main {
 
         for(int i = 0; i < nodes1.length; i++){
             for(int j = 0; j < nodes2.length; j++){
-                System.out.println(sequences + " " + nodes1[i] + " " + nodes2[j]);
+                // System.out.println(sequences + " " + nodes1[i] + " " + nodes2[j]);
                 sum += matrix[sequences.indexOf(nodes1[i]+"*")][sequences.indexOf(nodes2[j]+"*")];
             }
         }
-        System.out.println("d evaluated: sum = " + sum + " |Ci| = " + nodes1.length + " |Cj| = " + nodes2.length);
+        // System.out.println("d evaluated: sum = " + sum + " |Ci| = " + nodes1.length + " |Cj| = " + nodes2.length + " = " + (sum/(nodes1.length*nodes2.length)));
 
         return sum/(nodes1.length*nodes2.length);        
     }
+
+    public static String generateUpgmaString(List<Node> tree) {
+        StringBuilder sb = new StringBuilder();
+        generateUpgmaString(tree.get(tree.size()-1), sb);
+        return sb.toString();
+    }
+
+    public static void generateUpgmaString(Node node, StringBuilder sb) {
+        if (node.isLeaf()) {
+            sb.append(node.getName()).append(":").append(node.getHeight());
+        } 
+        else {
+            sb.append("(");
+            for (int i = 0; i < node.getChildren().size(); i++) {
+                Node child = node.getChildren().get(i);
+                generateUpgmaString(child, sb);
+                if (i < node.getChildren().size() - 1) {
+                    sb.append(",");
+                }
+            }
+            sb.append(")");
+            sb.append(":").append(node.getHeight());
+        }
+    }
+
 
     public static void printMatrix(List<String> names, double[][] matrix){
         System.out.print("\t\t");
